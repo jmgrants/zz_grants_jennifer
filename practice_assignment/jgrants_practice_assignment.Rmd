@@ -1,0 +1,154 @@
+---
+title: "STAT540 Practice Assignment"
+author: "Jennifer Grants"
+date: "1/4/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE)
+```
+
+```{r include=FALSE}
+library(tidyverse)
+```
+
+
+## 2. Data Inspection with R
+
+In this question we will be using the Titanic dataset:
+
+```{r}
+titanic <- data.frame(Titanic)
+
+str(titanic)
+```
+
+
+### 2.1 Passenger breakdown
+
+#### 2.1.1 Children
+
+First we want to determine how many children were on Titanic.
+
+```{r}
+child <- sum(titanic[which(titanic$Age == "Child"),]$Freq)
+```
+
+> Conclusion: `r child` children were on Titanic.
+
+
+#### 2.1.2 Adults
+
+Next we want to determine how many adults were on Titanic.
+
+```{r}
+adult <- sum(titanic[which(titanic$Age == "Adult"),]$Freq)
+```
+
+> Conclusion: `r adult` children were on Titanic.
+
+
+#### 2.1.3 Adult gender
+
+Finally we want to determine if there were more female adult or male adult passengers.
+
+```{r}
+female <- sum(titanic[which(titanic$Age == "Adult" & titanic$Sex == "Female"),]$Freq)
+
+male <- sum(titanic[which(titanic$Age == "Adult" & titanic$Sex == "Male"),]$Freq)
+```
+
+> Conclusions: 
+
+> * There were `r female` adult females and `r male` adult males on Titanic.
+* Therefore, there were more adult male than adult female passengers.
+
+
+
+### 2.2 Survival
+
+#### 2.2.1 Children vs. adults
+
+First we want to determine if children had a better survival rate than adults.
+
+We will calculate the survival rate for each group as Survival_rate = Survived/Total.
+
+```{r}
+ch_surv <- sum(titanic[which(titanic$Age == "Child" & titanic$Survived == "Yes"),]$Freq) / sum(titanic[which(titanic$Age == "Child"),]$Freq)
+
+ad_surv <- sum(titanic[which(titanic$Age == "Adult" & titanic$Survived == "Yes"),]$Freq) / sum(titanic[which(titanic$Age == "Adult"),]$Freq)
+
+ch_greater <- ch_surv>ad_surv
+```
+
+> Conclusions:  
+
+> * Child survival rate: `r ch_surv`  
+* Adult survival rate: `r ad_surv`  
+* Child survival > Adult survival? : `r ch_greater`  
+* Therefore, children had a better survival rate than adults on Titanic.  
+
+
+#### 2.2.2 By class
+
+Now we want to know which class of passengers have the best survival rate.
+
+```{r}
+summary <- group_by(titanic, Class, Survived) %>%
+  summarise(Total = sum(Freq)) %>%
+  spread(key = Survived, value = Total) %>%
+  rename(Died = No, Survived = Yes) %>%
+  mutate(Survival_rate = Survived / (Survived + Died)) %>%
+  arrange()
+```
+
+
+Summary of survival rate by class:
+
+```{r}
+print(summary)
+```
+
+```{r}
+best_surv <- range(summary$Survival_rate)[2]
+
+name_best <- summary[which(summary$Survival_rate == best_surv),]$Class
+```
+
+> Conclusion: The class of passengers with the best survival rate was the `r name_best` class.
+
+
+
+## 3. Data visualization
+
+First read in the data and look at the content.
+
+```{r}
+dat <- read.table(file = "./data/guinea_pigs_tooth_growth.txt", sep = "\t", header = TRUE)
+```
+
+```{r}
+str(dat)
+```
+
+
+
+Next we will graph the effect of the supplements at varying doses upon tooth length. Is there a difference in tooth length depending on the supplement type and dose?
+
+```{r}
+# To separate the graph by dose, first make dose a factor
+dat$dose <- as.factor(dat$dose)
+
+ggplot(dat, aes(supp, len)) +
+  geom_boxplot(aes(fill = dose)) +
+  theme_classic(base_size = 14) +
+  labs(x = "supplement", y = "tooth length", fill = "dose (mg/day)") +
+  ggtitle("Effect of supplements on tooth length")
+```
+
+> Conclusions:
+
+> * This graph shows that increasing doses of OJ or VC can increase tooth length in guinea pigs.   
+* Comparing between supplements, at lower doses (0.5 and 1.0 mg/day), OJ has has a slightly greater effect than VC. At high dose (2 mg/day), the effect of OJ and VC on tooth length is equivalent.  
+* I chose to present the data in this way so that I could test the effect of the independent variables (supplement, dose) on the dependent variable (tooth length). It was important to split up the data by dose, otherwise the effect would be masked.  

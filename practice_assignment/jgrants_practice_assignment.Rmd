@@ -46,7 +46,7 @@ Next we want to determine how many adults were on Titanic.
 adult <- sum(titanic[which(titanic$Age == "Adult"),]$Freq)
 ```
 
-> Conclusion: `r adult` children were on Titanic.
+> Conclusion: `r adult` adults were on Titanic.
 
 
 #### 2.1.3 Adult gender

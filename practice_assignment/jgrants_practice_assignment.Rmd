@@ -3,6 +3,7 @@ title: "STAT540 Practice Assignment"
 author: "Jennifer Grants"
 date: "1/4/2019"
 output: html_document
+keep_md: true
 ---
 
 ```{r setup, include=FALSE}

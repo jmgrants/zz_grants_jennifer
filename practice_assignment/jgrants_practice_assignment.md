@@ -7,23 +7,29 @@ output:
     keep_md: true
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, eval = TRUE)
-```
 
-```{r include=FALSE}
-library(tidyverse)
-```
+
+
 
 
 ## 2. Data Inspection with R
 
 In this question we will be using the Titanic dataset:
 
-```{r}
+
+```r
 titanic <- data.frame(Titanic)
 
 str(titanic)
+```
+
+```
+## 'data.frame':	32 obs. of  5 variables:
+##  $ Class   : Factor w/ 4 levels "1st","2nd","3rd",..: 1 2 3 4 1 2 3 4 1 2 ...
+##  $ Sex     : Factor w/ 2 levels "Male","Female": 1 1 1 1 2 2 2 2 1 1 ...
+##  $ Age     : Factor w/ 2 levels "Child","Adult": 1 1 1 1 1 1 1 1 2 2 ...
+##  $ Survived: Factor w/ 2 levels "No","Yes": 1 1 1 1 1 1 1 1 1 1 ...
+##  $ Freq    : num  0 0 35 0 0 0 17 0 118 154 ...
 ```
 
 
@@ -33,29 +39,32 @@ str(titanic)
 
 First we want to determine how many children were on Titanic.
 
-```{r}
+
+```r
 child <- sum(titanic[which(titanic$Age == "Child"),]$Freq)
 ```
 
-> Conclusion: `r child` children were on Titanic.
+> Conclusion: 109 children were on Titanic.
 
 
 #### 2.1.2 Adults
 
 Next we want to determine how many adults were on Titanic.
 
-```{r}
+
+```r
 adult <- sum(titanic[which(titanic$Age == "Adult"),]$Freq)
 ```
 
-> Conclusion: `r adult` adults were on Titanic.
+> Conclusion: 2092 adults were on Titanic.
 
 
 #### 2.1.3 Adult gender
 
 Finally we want to determine if there were more female adult or male adult passengers.
 
-```{r}
+
+```r
 female <- sum(titanic[which(titanic$Age == "Adult" & titanic$Sex == "Female"),]$Freq)
 
 male <- sum(titanic[which(titanic$Age == "Adult" & titanic$Sex == "Male"),]$Freq)
@@ -63,7 +72,7 @@ male <- sum(titanic[which(titanic$Age == "Adult" & titanic$Sex == "Male"),]$Freq
 
 > Conclusions: 
 
-> * There were `r female` adult females and `r male` adult males on Titanic.
+> * There were 425 adult females and 1667 adult males on Titanic.
 * Therefore, there were more adult male than adult female passengers.
 
 
@@ -76,7 +85,8 @@ First we want to determine if children had a better survival rate than adults.
 
 We will calculate the survival rate for each group as Survival_rate = Survived/Total.
 
-```{r}
+
+```r
 ch_surv <- sum(titanic[which(titanic$Age == "Child" & titanic$Survived == "Yes"),]$Freq) / sum(titanic[which(titanic$Age == "Child"),]$Freq)
 
 ad_surv <- sum(titanic[which(titanic$Age == "Adult" & titanic$Survived == "Yes"),]$Freq) / sum(titanic[which(titanic$Age == "Adult"),]$Freq)
@@ -86,9 +96,9 @@ ch_greater <- ch_surv>ad_surv
 
 > Conclusions:  
 
-> * Child survival rate: `r ch_surv`  
-* Adult survival rate: `r ad_surv`  
-* Child survival > Adult survival? : `r ch_greater`  
+> * Child survival rate: 0.5229358  
+* Adult survival rate: 0.3126195  
+* Child survival > Adult survival? : TRUE  
 * Therefore, children had a better survival rate than adults on Titanic.  
 
 
@@ -96,7 +106,8 @@ ch_greater <- ch_surv>ad_surv
 
 Now we want to know which class of passengers have the best survival rate.
 
-```{r}
+
+```r
 summary <- group_by(titanic, Class, Survived) %>%
   summarise(Total = sum(Freq)) %>%
   spread(key = Survived, value = Total) %>%
@@ -108,17 +119,30 @@ summary <- group_by(titanic, Class, Survived) %>%
 
 Summary of survival rate by class:
 
-```{r}
+
+```r
 print(summary)
 ```
 
-```{r}
+```
+## # A tibble: 4 x 4
+## # Groups:   Class [4]
+##   Class  Died Survived Survival_rate
+##   <fct> <dbl>    <dbl>         <dbl>
+## 1 1st     122      203         0.625
+## 2 2nd     167      118         0.414
+## 3 3rd     528      178         0.252
+## 4 Crew    673      212         0.240
+```
+
+
+```r
 best_surv <- range(summary$Survival_rate)[2]
 
 name_best <- summary[which(summary$Survival_rate == best_surv),]$Class
 ```
 
-> Conclusion: The class of passengers with the best survival rate was the `r name_best` class.
+> Conclusion: The class of passengers with the best survival rate was the 1st class.
 
 
 
@@ -126,19 +150,29 @@ name_best <- summary[which(summary$Survival_rate == best_surv),]$Class
 
 First read in the data and look at the content.
 
-```{r}
+
+```r
 dat <- read.table(file = "./data/guinea_pigs_tooth_growth.txt", sep = "\t", header = TRUE)
 ```
 
-```{r}
+
+```r
 str(dat)
+```
+
+```
+## 'data.frame':	60 obs. of  3 variables:
+##  $ len : num  4.2 11.5 7.3 5.8 6.4 10 11.2 11.2 5.2 7 ...
+##  $ supp: Factor w/ 2 levels "OJ","VC": 2 2 2 2 2 2 2 2 2 2 ...
+##  $ dose: num  0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.5 ...
 ```
 
 
 
 Next we will graph the effect of the supplements at varying doses upon tooth length. Is there a difference in tooth length depending on the supplement type and dose?
 
-```{r}
+
+```r
 # To separate the graph by dose, first make dose a factor
 dat$dose <- as.factor(dat$dose)
 
@@ -148,6 +182,8 @@ ggplot(dat, aes(supp, len)) +
   labs(x = "supplement", y = "tooth length", fill = "dose (mg/day)") +
   ggtitle("Effect of supplements on tooth length")
 ```
+
+![](jgrants_practice_assignment_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
 
 > Conclusions:
 

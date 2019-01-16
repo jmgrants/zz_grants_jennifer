@@ -1,0 +1,49 @@
+---
+title: "Graphing with ggplot2"
+author: "Jennifer Grants"
+date: "1/15/2019"
+output: 
+  html_document:
+    keep_md: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include = FALSE}
+library(tidyverse)
+```
+
+## 1. Inspect mpg data frame 
+```{r}
+str(mpg)
+```
+
+## 2. Summarise average efficiency by vehicle class 
+```{r}
+avgEff <- mpg %>% 
+  group_by(class) %>%
+  summarise(fuel_efficiency = mean(hwy))
+
+head(avgEff)
+```
+
+
+## 3. Experiment with coord_polar 
+```{r}
+(p <- ggplot(avgEff) +
+  geom_bar(aes(class, fuel_efficiency, fill = class), stat = "identity"))
+```
+```{r}
+p + coord_polar()
+```
+
+
+## 4. Deliverable 
+```{r warning=FALSE}
+ggplot(mpg) +
+  geom_point(aes(x = displ, y = hwy, colour = drv, size = class))
+```
+
+

@@ -1,0 +1,53 @@
+---
+title: "Probability and Simulations - Seminar 2c"
+author: "Jennifer Grants"
+date: "1/22/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE)
+```
+
+```{r include=FALSE}
+library(tidyverse)
+```
+
+# 1. Definitions 
+
+## 1.a. Probability density functions 
+
+Probability density functions map the values of x (measured variable) to associated probability described by the distribution. 
+
+e.g. Function dnorm() 
+
+```{r}
+xValues <- seq(from = -5, to = 5, length = 100)
+plotA <- dnorm(xValues, mean = 0, sd = 0.5) #
+plotB <-  dnorm(xValues, mean = 0, sd = 1)
+plotC <-  dnorm(xValues, mean = 0, sd = 2)
+plotD <-  dnorm(xValues, mean = -2, sd = 1)
+
+normalDistributionsTibble <- tibble(x_value = xValues, 
+                                    red_value = plotA,
+                                    blue_value = plotB,
+                                    green_value = plotC,
+                                    purple_value = plotD)
+
+p <- normalDistributionsTibble %>% ggplot()
+p + 
+  geom_line(aes(x = xValues, y = red_value), color = "red") +
+  geom_line(aes(x = xValues, y = blue_value), color = "blue") +
+  geom_line(aes(x = xValues, y = green_value), color = "green") +
+  geom_line(aes(x = xValues, y = purple_value), color = "purple") +
+  xlab("x") +
+  ylab("f(x)")
+```
+
+
+## 1.b. Cumulative Distribution Function (CDF) 
+
+CDF describes the cumulative probability of all values smaller than x. This is why it starts at 0 and goes up to 1, as the probability of all values smaller than x grows with x. The slope corresponds to the spread. 
+
+e.g. Function: pnorm()
+

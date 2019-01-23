@@ -8,13 +8,9 @@ output:
     toc: true
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, eval = TRUE, fig.width = 4, fig.height = 3)
-```
 
-```{r include=FALSE}
-library(tidyverse)
-```
+
+
 
 # 1. Demonstration of concepts 
 
@@ -24,7 +20,8 @@ library(tidyverse)
 
     * e.g. Function dnorm() 
 
-```{r}
+
+```r
 xValues <- seq(from = -5, to = 5, length = 100)
 plotA <- dnorm(xValues, mean = 0, sd = 0.5) #
 plotB <-  dnorm(xValues, mean = 0, sd = 1)
@@ -47,6 +44,8 @@ p +
   ylab("f(x)")
 ```
 
+![](probability_simulations_seminar2c_files/figure-html/unnamed-chunk-2-1.png)<!-- -->
+
 
 ## 1.b. Cumulative Distribution Function (CDF) 
 
@@ -54,7 +53,8 @@ p +
 
     * e.g. Function: pnorm() 
 
-```{r}
+
+```r
 xValues <- seq(from = -5, to = 5, length = 100)
 plotA <- pnorm(xValues, mean = 0, sd = 0.5)
 plotB <-  pnorm(xValues, mean = 0, sd = 1)
@@ -77,12 +77,15 @@ p +
   ylab("f(x)")
 ```
 
+![](probability_simulations_seminar2c_files/figure-html/unnamed-chunk-3-1.png)<!-- -->
+
 
 ## 1.c. Simulations 
 
 * In R, we can sample values from the normal distribution easy using the rnorm() function (for example). 
 
-```{r}
+
+```r
 meanValue <- 0
 standardDeviation <- 1
 numVals <- 100
@@ -102,6 +105,8 @@ dataFrame %>% ggplot() +
     ylab("")
 ```
 
+![](probability_simulations_seminar2c_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
+
 ## 1.d. Central Limit Theorem 
 
 * The distribution of the sum or means of random samples generated independently (IID) by any distribution will converge to the normal distribution. 
@@ -111,7 +116,8 @@ dataFrame %>% ggplot() +
     * Here I will replicate this simulation to see how it changes with different seed values.
 
 #### Replicate 1: 
-```{r}
+
+```r
 set.seed(1)
 
 sampleSize <- 100
@@ -130,8 +136,11 @@ tibble(x = sampleMeans) %>%
   geom_point(aes(x = x, y = 0), color = "blue", shape = 1, size = 3)
 ```
 
+![](probability_simulations_seminar2c_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
+
 #### Replicate 2: 
-```{r}
+
+```r
 set.seed(20)
 
 randomChiSqValues <- rchisq(n = numSamples * sampleSize, df = degreeFreedom)
@@ -145,8 +154,11 @@ tibble(x = sampleMeans) %>%
   geom_point(aes(x = x, y = 0), color = "blue", shape = 1, size = 3)
 ```
 
+![](probability_simulations_seminar2c_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
+
 #### Replicate 3: 
-```{r}
+
+```r
 set.seed(99)
 
 randomChiSqValues <- rchisq(n = numSamples * sampleSize, df = degreeFreedom)
@@ -160,6 +172,8 @@ tibble(x = sampleMeans) %>%
   geom_point(aes(x = x, y = 0), color = "blue", shape = 1, size = 3)
 ```
 
+![](probability_simulations_seminar2c_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
+
 > Conclusion: This simluation produces a normal distribution with mean = 1 (approximately).
 
 
@@ -172,7 +186,8 @@ tibble(x = sampleMeans) %>%
     * I will perform the simulation multiple times with different seed values to see how it changes. 
 
 #### Replicate 1: 
-```{r}
+
+```r
 set.seed(1)
 
 sampleSize <- 5
@@ -191,8 +206,11 @@ tibble(x = sampleMeans) %>%
   geom_point(aes(x = x, y = 0), color = "blue", shape = 1, size = 3)
 ```
 
+![](probability_simulations_seminar2c_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
+
 #### Replicate 2: 
-```{r}
+
+```r
 set.seed(20)
 
 randomChiSqValues <- rchisq(n = numSamples * sampleSize, df = degreeFreedom)
@@ -206,8 +224,11 @@ tibble(x = sampleMeans) %>%
   geom_point(aes(x = x, y = 0), color = "blue", shape = 1, size = 3)
 ```
 
+![](probability_simulations_seminar2c_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
+
 #### Replicate 3: 
-```{r}
+
+```r
 set.seed(99)
 
 randomChiSqValues <- rchisq(n = numSamples * sampleSize, df = degreeFreedom)
@@ -220,6 +241,8 @@ tibble(x = sampleMeans) %>%
   geom_line(aes(x = x), stat = "density", color = "blue") +
   geom_point(aes(x = x, y = 0), color = "blue", shape = 1, size = 3)
 ```
+
+![](probability_simulations_seminar2c_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
 
 > Conclusion: Applying the CLT to small sample sizes (e.g. n = 5) is not as accurate as when using larger sample sizes (e.g. n = 100). When n = 100, simulation produced a normal distribution with mean = 1. When n = 5, the distribution was skewed right and was more variable between replicates of the simulation compared to when n = 100.
 

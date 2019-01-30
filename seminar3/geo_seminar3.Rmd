@@ -1,0 +1,186 @@
+---
+title: "Using GEOquery: seminar 3"
+output: 
+  html_document:
+    keep_md: true
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(GEOquery)
+library(biomaRt)
+library(tidyverse)
+library(data.table)
+library(reshape2)
+library(knitr)
+```
+
+# Part 1 & 2
+## Renal Cell Carcinoma vs. Adjacent Normal dataset  
+```{r message=FALSE, warning=FALSE}
+gds <- getGEO("GDS507")
+str(gds)
+```
+
+
+### Extract metadata and expression data  
+```{r}
+meta_data <- data.frame(Sample = gds@dataTable@columns$sample, disease = gds@dataTable@columns$disease.state)
+
+head(meta_data)
+
+gds_data <- gds@dataTable@table
+
+head(gds_data)
+```
+
+Dimensions of expression data frame:  
+```{r}
+nrow(gds_data)
+ncol(gds_data)
+```
+
+Melt the data frame to tidy the data:  
+```{r}
+melted_data <- melt(gds_data, id.vars = c("ID_REF", "IDENTIFIER"), var = "Sample")
+head(arrange(melted_data, IDENTIFIER))
+tail(arrange(melted_data, IDENTIFIER))
+```
+Note that each transcript has multiple probes.
+
+
+### Calculate mean of multiple probes for same transcript  
+```{r}
+new_melted_data <- group_by(melted_data, Sample, IDENTIFIER) %>%
+  summarise(Count = mean(value))
+
+head(new_melted_data)
+tail(new_melted_data)
+```
+
+
+## Chromosomal locations of genes represented in dataset
+```{r}
+human = useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+
+identify_gene_names <- function(df){
+    names(df) <- c("Sample", "hgnc_symbol", "Count")
+    names <- getBM( attributes=c("hgnc_symbol", "chromosome_name") , filters= "hgnc_symbol", values = unique(df$hgnc_symbol), mart = human)
+    left_join(df, names, by = "hgnc_symbol")
+}
+
+data_with_chromosome <- identify_gene_names(new_melted_data) %>% 
+    filter(chromosome_name %in% c(1:23, "X", "Y"))
+
+head(data_with_chromosome)
+```
+
+
+
+## Part 2 Exercise 
+
+We are interested in how the average expression of genes on the X chromosome changes between RCC and normal cells.  
+```{r warning=FALSE}
+# add metadata annotations
+full_data <- left_join(data_with_chromosome, meta_data, by = "Sample")
+
+head(full_data)
+```
+
+```{r}
+# filter to X chromosome and compare expression of ALL genes on X chromosome between RCC and normal cells
+filter(full_data, chromosome_name == "X") %>%
+  group_by(disease) %>%
+  summarise(Mean_X_expr = mean(Count))
+```
+
+> Conclusion: There is slightly lower expression of all X chromosome genes in RCC vs. normal cells.  
+
+# Part 3
+## Graphing expression data  
+First take a random sample of 100 genes to graph.  
+```{r}
+set.seed(5747540)
+sample_to_choose <- sample(1:length(unique(full_data$hgnc_symbol)), size = 100) # creates a vector of 100 random numbers between 1 and the number of unique gene names we have
+
+names_to_choose <- as.character(unique(full_data$hgnc_symbol)[sample_to_choose]) # creates a vector of 100 random gene names from our gene names
+
+full_data %>% 
+    filter(hgnc_symbol %in% names_to_choose) %>% 
+    group_by(Sample) %>% 
+    ggplot(aes(x = as.factor(chromosome_name), y = Count)) + geom_point(aes(colour = disease))
+
+```
+
+
+## Part 3 Exercise  
+By adding one additional function to the code above, calculate the sum of all counts in each sample and divide each expression value by that sum (hint: use mutate). Remember, you can add multiple new columns using mutate by separating each column with a comma (i.e mutate(x = c("a", "b"), y = c("d", "c"))). Plot this new transformed column.  
+```{r}
+# NOTE: I am basing sums on the full dataset, then filtering to the set of 100 genes only for graphing purposes
+sums <- full_data %>%
+  group_by(Sample) %>%
+  summarise(Sum_sample = sum(Count))
+
+full_data2 <- left_join(full_data, sums) %>%
+  mutate(New_transf_col = Count/Sum_sample)
+
+full_data2 %>% 
+    filter(hgnc_symbol %in% names_to_choose) %>% 
+    group_by(Sample) %>% 
+    ggplot(aes(x = as.factor(chromosome_name), y = New_transf_col)) + geom_point(aes(colour = disease))
+
+```
+
+
+
+# Part 4  
+## Perform t-test for each transcript to compare expression levels in RCC vs normal  
+```{r}
+ttest <- full_data %>% 
+    group_by(hgnc_symbol) %>% 
+    summarize( pvalue = t.test(Count ~ disease)$p.value)
+
+head(ttest, 10)
+```
+
+
+## Deliverable  
+
+1.  To graph a density plot of all p-values calculated above.  
+
+```{r}
+ggplot(ttest, aes(pvalue)) +
+  geom_density()
+```
+
+2.  Extract a data frame of all genes with p-values lower than 0.05.  
+
+```{r}
+(signif <- filter(ttest, pvalue < 0.05) %>%
+   arrange(pvalue))
+```
+
+
+3.  The name of the gene with the lowest p-value is: `r signif[1,1]`  
+
+4.  Modify the above code to also identify the length of each gene captured in the dataset.  
+
+```{r warning=FALSE}
+identify_gene_names <- function(df){
+    names(df) <- c("Sample", "hgnc_symbol", "Count")
+    names <- getBM( attributes=c("hgnc_symbol", "chromosome_name", "transcript_length") , filters= "hgnc_symbol", values = unique(df$hgnc_symbol), mart = human)
+    left_join(df, names, by = "hgnc_symbol")
+}
+
+data_with_chr_trlen <- identify_gene_names(new_melted_data) %>% 
+    filter(chromosome_name %in% c(1:23, "X", "Y"))
+
+head(data_with_chr_trlen)
+
+full_data_trlen <- left_join(data_with_chr_trlen, meta_data, by = "Sample")
+
+head(full_data_trlen)
+```
+

@@ -1,0 +1,376 @@
+---
+title: 'Seminar 4: Differential Expression Analysis'
+author: "Jennifer Grants"
+date: "2/4/2019"
+output: 
+  html_document:
+    keep_md: true
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE)
+library(tidyverse)
+library(reshape2)
+library(limma)
+library(knitr)
+```
+
+# Dataset & design
+```{r warning=FALSE}
+expressionMatrix <- read.table(file = "./data/GSE4051_data.tsv", sep = "\t", quote = "", stringsAsFactors = F)
+
+expressionMatrix <- rownames_to_column(expressionMatrix, var = "gene")
+expressionMatrix <- as.tibble(expressionMatrix) 
+
+expressionMatrix
+```
+
+```{r}
+samplesMetadata <- read.table("./data/GSE4051_design.txt",  sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+
+samplesMetadata <- samplesMetadata %>% as_tibble() 
+
+# define our own column names for samples metadata for clarity
+names(samplesMetadata) <- c("sample_id", "sample_number", "dev_stage", "genotype")
+
+samplesMetadata
+```
+
+Convert `dev_stage` and `genotype` to factors:  
+```{r}
+samplesMetadata$dev_stage <- factor(samplesMetadata$dev_stage, levels = c("E16", "P2", "P6", "P10", "4_weeks"))
+samplesMetadata$genotype <- factor(samplesMetadata$genotype, levels = c("wt", "NrlKO"))
+```
+
+Check dimensions of expression and metadata:  
+```{r}
+ncol(expressionMatrix)-1 # because "gene" is a column
+nrow(samplesMetadata)
+```
+
+Check that the sample names match:  
+```{r}
+identical(colnames(expressionMatrix[,2:ncol(expressionMatrix)]), samplesMetadata$sample_id)
+```
+
+
+# QC Plots  
+```{r}
+meltedExpressionMatrix <- expressionMatrix %>% melt(id = "gene") 
+
+meltedExpressionMatrix %>% 
+  ggplot(aes(x = variable, y = value)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+```{r}
+meltedExpressionMatrix %>% 
+  ggplot(aes(x = value, color = variable)) +
+  geom_density() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+> Conclusion: The distribution of gene expression is similar across samples, as expected.  
+
+# Single gene approach
+## Plot expression of 2 probes across 2 genotype groups  
+```{r warning = FALSE}
+geneIds <- c("1416119_at", "1431708_a_at")
+
+# use dplyr::filter() to get the expression data for the gene
+expressionDataForGene <- filter(meltedExpressionMatrix, gene %in% geneIds)
+
+# reformat, change column titles, and join with metadata
+expressionDataForGene <- select(expressionDataForGene, variable, gene, value) %>%
+  rename(sample_id = variable, expression = value) %>%
+  arrange(gene) %>%
+  left_join(samplesMetadata, by = "sample_id")
+
+expressionDataForGene
+```
+
+Plot and assess whether probes appear differentially expressed:  
+```{r}
+expressionDataForGene %>% 
+  ggplot(aes(x = expression, y = genotype, color = genotype)) + 
+  geom_point(size = 3, shape = 1) +
+  facet_wrap(~gene)
+```
+
+> Interim conclusion: Probe 1416119_at does not appear differentially expressed, and probe 1431708_a_at appears differentially expressed between wt and NrlKO.  
+
+## T-tests
+
+Perform a t-test comparing expression of the probe 1416119_at in NrlKO vs. wt:
+```{r}
+boringGene <- filter(expressionDataForGene, gene == "1416119_at")
+
+t.test(expression ~ genotype, data = boringGene)
+```
+
+> Conclusion: There is no significant difference in expression of 1416119_at between wt and NrlKO.
+
+Perform a t-test comparing expression of the probe 1431708_a_at in NrlKO vs. wt:
+```{r}
+interestingGene <- filter(expressionDataForGene, gene == "1431708_a_at")
+
+(t_interesting <- t.test(expression ~ genotype, data = interestingGene))
+```
+
+> Conclusion: Expression of 1431708_a_at is significantly lower in NrlKO vs. wt (Welch's Two Sample t-test p-value = `r t_interesting$p.value`).  
+
+
+## Linear regressions  
+
+Perform linear regression comparing expression of the probe 1416119_at in NrlKO vs. wt: 
+```{r}
+summary(lm(expression ~ genotype, boringGene))
+```
+
+> Conclusions: The p-value for genotypeNrlKO is very similar to the t-test p-value.  
+
+
+Perform a linear regression comparing expression of the probe 1431708_a_at in NrlKO vs. wt: 
+```{r}
+summary(lm(expression ~ genotype, interestingGene))
+```
+
+> Conclusions: The p-value for genotypeNrlKO is very similar to the t-test p-value.  
+
+
+# High-throughput approach  
+## Identify genes that differ across developmental stages in wt (baseline = E16), using Limma  
+
+Filter wild type samples only, so we can focus on effect of developmental stage only:  
+```{r}
+wildTypeSamples <- filter(samplesMetadata, genotype == "wt")
+
+wildTypeExpressionMatrix <- column_to_rownames(expressionMatrix, var = "gene") %>%
+  select(wildTypeSamples$sample_id)
+
+identical(colnames(wildTypeExpressionMatrix), wildTypeSamples$sample_id, attrib.as.set = T) # check to make sure the columns are in same order for metadata and expression matrix
+```
+
+Construct design matrix:  
+```{r}
+designMatrix <- model.matrix(~dev_stage, wildTypeSamples) # function model.matrix() creates a design matrix (using the "reference-treatment effect" Parameterization design)
+
+head(designMatrix, 10)
+head(wildTypeSamples, 10)
+```
+
+
+Run limma and get TopTable:  
+```{r}
+wildTypeDevStageFit <- lmFit(object = wildTypeExpressionMatrix, design = designMatrix) # function lmFit() fits a linear model for each gene
+wildTypeDevStageFitEb <- eBayes(wildTypeDevStageFit) # function eBayes() computes moderated t-statistic for each gene 
+
+topTenGenes <- topTable(wildTypeDevStageFitEb) # function topTable() gives you ranked list of genes with summary data from lmFit/eBayes (note: number = Inf gives all genes instead of top)
+
+topTenGenes
+```
+
+
+### Plot top 6 differentially expressed probes  
+```{r}
+geneIds <- rownames(topTenGenes[1:6,])
+
+# use dplyr::filter() to get the expression data for the gene
+expressionDataForGene <- filter(meltedExpressionMatrix, gene %in% geneIds)
+
+# reformat, change column titles, and join with metadata, then filter to wt
+expressionDataForGene <- select(expressionDataForGene, variable, gene, value) %>%
+  rename(sample_id = variable, expression = value) %>%
+  arrange(gene) %>%
+  left_join(samplesMetadata, by = "sample_id") %>%
+  filter(genotype == "wt")
+
+expressionDataForGene
+```
+
+```{r}
+ggplot(expressionDataForGene, aes(dev_stage, expression, color = genotype)) +
+  geom_point() +
+  geom_jitter() +
+  stat_summary(aes(y = expression, group = 1), fun.y = mean, geom="line") +
+  facet_wrap(~gene)
+
+# Make a function that filters to genes of interest and then reformats data and plots same as above (in "wt" only)
+plotGenes <- function(geneIds, meltedExpressionMatrix, samplesMetadata){
+  expressionDataForGene <- filter(meltedExpressionMatrix, gene %in% geneIds)
+  expressionDataForGene <- select(expressionDataForGene, variable, gene, value) %>%
+  rename(sample_id = variable, expression = value) %>%
+  arrange(gene) %>%
+  left_join(samplesMetadata, by = "sample_id") %>%
+  filter(genotype == "wt")
+  
+  ggplot(expressionDataForGene, aes(dev_stage, expression, color = genotype)) +
+  geom_point() +
+  geom_jitter() +
+  stat_summary(aes(y = expression, group = 1), fun.y = mean, geom="line") +
+  facet_wrap(~gene)
+}
+
+plotGenes(geneIds, meltedExpressionMatrix, samplesMetadata) # check to make sure it works
+```
+
+
+### Plot probes that are not differentially expressed  
+```{r}
+allGenes <- topTable(wildTypeDevStageFitEb, number = Inf)
+
+(boringGenes <- tail(allGenes))
+```
+
+```{r}
+geneIds <- rownames(boringGenes)
+
+plotGenes(geneIds, meltedExpressionMatrix, samplesMetadata)
+```
+
+
+
+## Fit custom contrast matrix to limma model to compare different groups  
+```{r}
+# make custom contrast matrix
+contrastMatrix <- makeContrasts(
+  p10vsp6 = dev_stageP10 - dev_stageP6,
+  fourweeksVsP10 = dev_stage4_weeks - dev_stageP10,
+  levels = designMatrix
+) # function makeContrasts() allows you to compare desired groups, given an existing design matrix (levels = designMatrix)
+
+contrastMatrix
+```
+
+
+```{r}
+# fit the contrasts using the original Limma model
+contrastFit <- contrasts.fit(wildTypeDevStageFit, contrastMatrix) # function contrasts.fit() allows you to fit new contrasts to an existing lmFit() result, by providing a new contrast matrix generated with makeContrasts()
+
+contrastFitEb <- eBayes(contrastFit)
+
+contrastGenes <- topTable(contrastFitEb)
+
+contrastGenes
+```
+
+
+### Plot the top 6 differentially-expressed genes in the new limma result with 2 contrasts
+```{r}
+plotGenes(rownames(contrastGenes[1:6,]), meltedExpressionMatrix, samplesMetadata)
+```
+
+> Note: All of these happen to be probes that are differentially expressed between 4-weeks and P10, but no difference between P10 and P6.  
+
+### Set p-value cutoff and identify probes that are differentially expressed desired contrast
+```{r}
+cutoff <- 1e-04
+wtResCont <- decideTests(contrastFitEb, p.value = cutoff, method = "global") # function decideTests() identifies differentially expressed genes (at a given cutoff) between your contrasts (for a contrasts.fit() result); note, see later for use of this function on lmFit/eBayes result without contrasts.fit
+
+summary(wtResCont) # function summary() when applied to decideTests() result gives you a count of all significantly up/down genes for each contrast
+```
+
+> Note: Only 4 genes are differentially P10 vs. P6  
+
+#### Differential expression in P10 vs. P6
+```{r}
+hits1 <- as.data.frame(wtResCont) %>%
+  rownames_to_column(var = "gene") %>%
+  filter(p10vsp6 < 0)
+
+plotGenes(geneIds = hits1$gene, meltedExpressionMatrix, samplesMetadata)
+```
+
+
+#### Selected differentially expressed genes in 4-weeks vs. P10 (4 downregulated)  
+```{r}
+hits2 <- as.data.frame(wtResCont) %>%
+  rownames_to_column(var = "gene") %>%
+  filter(fourweeksVsP10 < 0)
+
+plotGenes(geneIds = hits2[1:4,]$gene, meltedExpressionMatrix, samplesMetadata)
+```
+
+
+## Assess interaction between genotype and developmental stage
+
+First make simplified dataset considering the dev stages E16 & 4-weeks only:  
+```{r}
+interactionSamples <- filter(samplesMetadata, dev_stage %in% c("E16", "4_weeks"))
+
+# IMPORTANT - you want to adjust factor levels here to eliminate stages P2, P6, and P10 from your design matrix
+interactionSamples$dev_stage <- interactionSamples$dev_stage %>% 
+  as.character() %>% 
+  factor(levels = c("E16", "4_weeks"))
+
+interactionExpressionMatrix <- column_to_rownames(expressionMatrix, var = "gene") %>%
+  select(interactionSamples$sample_id)
+
+identical(colnames(interactionExpressionMatrix), interactionSamples$sample_id, attrib.as.set = T) # check to make sure the columns are in same order for metadata and expression matrix
+```
+
+Make design matrix with interaction term:  
+```{r}
+interactionDesign <- model.matrix(~genotype*dev_stage, interactionSamples)
+
+interactionDesign # note that the intercept is still the E16 stage, since it is the first factor level
+```
+
+Run limma with interaction design matrix:  
+```{r}
+interactionFit <- lmFit(interactionExpressionMatrix, interactionDesign)
+interactionFitEb <- eBayes(interactionFit)
+
+interactionAll <- topTable(interactionFitEb, number = Inf)
+head(interactionAll, 10)
+```
+
+Find genes with interaction between genotype and dev_stage:  
+```{r}
+interactionGenes <- decideTests(object = interactionFitEb, p.value = 1e-06, method = "global") # function decideTests() can also be used to identify significant results from a standard lmFit/eBayes result
+
+summary(interactionGenes)
+```
+
+Look for down regulation across developmental stages in wt but up regulation in genotypeNrlKO:  
+```{r}
+geneIds <- as.data.frame(interactionGenes) %>%
+  rownames_to_column(var = "gene") %>%
+  filter(dev_stage4_weeks < 0, `genotypeNrlKO:dev_stage4_weeks` > 0) %>% # this selects genes that are downregulated at 4 weeks in the 1st-level genotype (wt), but that go up in the alternative genotype at 4 weeks
+  select(gene) %>% unlist()
+
+# tweak the plotGenes function for this new task
+plotGenes2 <- function(geneIds, meltedExpressionMatrix, samplesMetadata){
+  expressionDataForGene <- filter(meltedExpressionMatrix, gene %in% geneIds)
+  expressionDataForGene <- select(expressionDataForGene, variable, gene, value) %>%
+  rename(sample_id = variable, expression = value) %>%
+  arrange(gene) %>%
+  left_join(samplesMetadata, by = "sample_id") %>%
+  filter(dev_stage %in% c("E16", "4_weeks"))
+  
+  expressionDataForGene$dev_stage <- expressionDataForGene$dev_stage %>% as.numeric() # this is necessary to get geom_smooth to work
+  
+  ggplot(expressionDataForGene, aes(dev_stage, expression, color = genotype)) +
+  geom_point() +
+  geom_jitter() +
+    geom_smooth(method = "lm", se = F) +
+  facet_wrap(~gene)
+}
+
+plotGenes2(geneIds[1:4], meltedExpressionMatrix, samplesMetadata)
+```
+
+
+# Deliverable  
+Make a similar plot but this time for 4 genes where there is no interaction between genotype and developmental stages.  
+```{r}
+geneIds <- as.data.frame(interactionGenes) %>%
+  rownames_to_column(var = "gene") %>%
+  filter(dev_stage4_weeks < 0, `genotypeNrlKO:dev_stage4_weeks` == 0) %>%
+  select(gene) %>% unlist()
+
+plotGenes2(geneIds[5:8], meltedExpressionMatrix, samplesMetadata)
+```
+

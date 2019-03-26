@@ -1,0 +1,23 @@
+---
+title: "Equation for Assignment 2 section 4.3.b"
+author: "Jennifer Grants"
+date: "3/19/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+* Let __Y__ represent the dependent variable: expression value of a gene of interest.
+* Let __X__ represent the independent variables
+* Let __b__ represent the coefficients of the independent variables
+* For the independent variables:
+    - let subscript __c__ denote the `cell_type` variable
+    - let subscript __o__ denote the `organism_part` variable
+    - let subscript __a__ denote the `age` variable
+    - let subscript __i__ denote the intercept
+* Let __e__ represent the random error of all terms combined.
+
+
+$$\mathbf{Y}=\mathbf{b}_i+\mathbf{b}_c\mathbf{X}_c+\mathbf{b}_a\mathbf{X}_a+\mathbf{b}_o\mathbf{X}_o+\mathbf{b}_{c,a}\mathbf{X}_c\mathbf{X}_a+\mathbf{e}$$
